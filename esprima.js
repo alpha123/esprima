@@ -2780,7 +2780,6 @@ parseStatement: true, parseSourceElement: true */
             oldLabelSet, oldInIteration, oldInSwitch, oldInFunctionBody;
 
 	if (!match('{')) {  // SpiderMonkey short lambdas
-	    token = lookahead();
             oldLabelSet = state.labelSet;
             oldInIteration = state.inIteration;
             oldInSwitch = state.inSwitch;
