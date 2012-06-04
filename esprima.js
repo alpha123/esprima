@@ -2149,10 +2149,11 @@ parseStatement: true, parseSourceElement: true */
 
     // 12.4 Expression Statement
 
-    function parseExpressionStatement() {
+    function parseExpressionStatement(noSemicolon) {
         var expr = parseExpression();
 
-        consumeSemicolon();
+	if (!noSemicolon)
+            consumeSemicolon();
 
         return {
             type: Syntax.ExpressionStatement,
@@ -2778,55 +2779,71 @@ parseStatement: true, parseSourceElement: true */
         var sourceElement, sourceElements = [], token, directive, firstRestricted,
             oldLabelSet, oldInIteration, oldInSwitch, oldInFunctionBody;
 
-        expect('{');
+	if (!match('{')) {  // SpiderMonkey short lambdas
+	    token = lookahead();
+            oldLabelSet = state.labelSet;
+            oldInIteration = state.inIteration;
+            oldInSwitch = state.inSwitch;
+            oldInFunctionBody = state.inFunctionBody;
 
-        while (index < length) {
-            token = lookahead();
-            if (token.type !== Token.StringLiteral) {
-                break;
-            }
+            state.labelSet = {};
+            state.inIteration = false;
+            state.inSwitch = false;
+            state.inFunctionBody = true;
 
-            sourceElement = parseSourceElement();
-            sourceElements.push(sourceElement);
-            if (sourceElement.expression.type !== Syntax.Literal) {
-                // this is not directive
-                break;
-            }
-            directive = sliceSource(token.range[0] + 1, token.range[1] - 1);
-            if (directive === 'use strict') {
-                strict = true;
-                if (firstRestricted) {
-                    throwError(firstRestricted, Messages.StrictOctalLiteral);
-                }
-            } else {
-                if (!firstRestricted && token.octal) {
-                    firstRestricted = token;
-                }
-            }
-        }
+	    sourceElements = [{type: Syntax.ReturnStatement, argument: parseExpressionStatement(true).expression}];
+	}
+	else {
+            expect('{');
 
-        oldLabelSet = state.labelSet;
-        oldInIteration = state.inIteration;
-        oldInSwitch = state.inSwitch;
-        oldInFunctionBody = state.inFunctionBody;
+            while (index < length) {
+		token = lookahead();
+		if (token.type !== Token.StringLiteral) {
+                    break;
+		}
 
-        state.labelSet = {};
-        state.inIteration = false;
-        state.inSwitch = false;
-        state.inFunctionBody = true;
+		sourceElement = parseSourceElement();
+		sourceElements.push(sourceElement);
+		if (sourceElement.expression.type !== Syntax.Literal) {
+                    // this is not directive
+                    break;
+		}
+		directive = sliceSource(token.range[0] + 1, token.range[1] - 1);
+		if (directive === 'use strict') {
+                    strict = true;
+                    if (firstRestricted) {
+			throwError(firstRestricted, Messages.StrictOctalLiteral);
+                    }
+		} else {
+                    if (!firstRestricted && token.octal) {
+			firstRestricted = token;
+                    }
+		}
 
-        while (index < length) {
-            if (match('}')) {
-                break;
-            }
-            sourceElement = parseSourceElement();
-            if (typeof sourceElement === 'undefined') {
-                break;
-            }
-            sourceElements.push(sourceElement);
-        }
+		oldLabelSet = state.labelSet;
+		oldInIteration = state.inIteration;
+		oldInSwitch = state.inSwitch;
+		oldInFunctionBody = state.inFunctionBody;
 
-        expect('}');
+		state.labelSet = {};
+		state.inIteration = false;
+		state.inSwitch = false;
+		state.inFunctionBody = true;
+
+		while (index < length) {
+		    if (match('}')) {
+			break;
+		    }
+		    sourceElement = parseSourceElement();
+		    if (typeof sourceElement === 'undefined') {
+			break;
+		    }
+		    sourceElements.push(sourceElement);
+		}
+
+		expect('}');
+	    }
+	}
 
         state.labelSet = oldLabelSet;
         state.inIteration = oldInIteration;
